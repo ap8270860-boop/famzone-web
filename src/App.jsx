@@ -2,7 +2,6 @@ function App() {
   return (
     <main className="app-shell">
       <section className="welcome-card" aria-labelledby="welcome-title">
-        <div className="brand-mark" aria-hidden="true">F</div>
         <p className="eyebrow">Famzone</p>
         <h1 id="welcome-title">Your family space starts here.</h1>
         <p className="intro">
