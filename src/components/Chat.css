@@ -718,8 +718,8 @@
   background-color: rgba(37, 27, 83, 0.78);
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: 0 8px 32px rgba(5, 3, 24, 0.12);
-  backdrop-filter: blur(14px) saturate(125%);
   -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(14px) saturate(125%);
 }
 
 .search-input-pill,
@@ -730,8 +730,8 @@
 .unread-badge,
 .floating-help-badge {
   box-shadow: 0 8px 24px rgba(5, 3, 24, 0.16);
-  backdrop-filter: blur(12px) saturate(125%);
   -webkit-backdrop-filter: blur(12px) saturate(125%);
+  backdrop-filter: blur(12px) saturate(125%);
 }
 
 .search-input-pill,
@@ -745,8 +745,8 @@
   background: rgba(92, 62, 191, 0.58);
   border: 1px solid rgba(178, 158, 255, 0.22);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 24px rgba(45, 24, 125, 0.16);
-  backdrop-filter: blur(12px) saturate(135%);
   -webkit-backdrop-filter: blur(12px) saturate(135%);
+  backdrop-filter: blur(12px) saturate(135%);
 }
 
 /* Scrollable navigation rail for the additional workspace tabs. */
@@ -779,8 +779,8 @@
   background: rgba(50, 42, 77, 0.68);
   border-color: rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 24px rgba(5, 3, 24, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px) saturate(120%);
   -webkit-backdrop-filter: blur(12px) saturate(120%);
+  backdrop-filter: blur(12px) saturate(120%);
 }
 
 .msg-group--self .msg-card {

@@ -1,0 +1,188 @@
+.drawer-sidebar {
+  width: 280px;
+  min-width: 280px;
+  height: 100vh;
+  background: linear-gradient(180deg, #051928 0%, #03101c 100%);
+  border-right: 1px solid rgba(0, 229, 153, 0.12);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 18px;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 100;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+/* User Profile Header */
+.drawer-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.drawer-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, #00E599 0%, #00B37E 100%);
+  flex-shrink: 0;
+}
+
+.drawer-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.drawer-user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-user-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.drawer-user-tag {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.drawer-bell-wrapper {
+  position: relative;
+}
+
+.drawer-bell-btn {
+  position: relative;
+  background: none;
+  border: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.drawer-bell-btn:hover {
+  color: #00E599;
+}
+
+.drawer-bell-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00E599;
+}
+
+/* Dividers */
+.drawer-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 12px 0;
+}
+
+/* Menu Items */
+.drawer-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #cbd5e1;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.15s ease,
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  width: 100%;
+}
+
+.drawer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  transform: translateX(3px);
+}
+
+.drawer-item:active {
+  transform: scale(0.98);
+}
+
+.drawer-item:focus-visible {
+  outline: none;
+  border-color: rgba(0, 229, 153, 0.5);
+}
+
+.drawer-item.active {
+  background: linear-gradient(135deg, rgba(0, 229, 153, 0.18) 0%, rgba(0, 179, 126, 0.1) 100%);
+  border: 1px solid rgba(0, 229, 153, 0.3);
+  color: #00E599;
+  box-shadow: 0 4px 16px rgba(0, 229, 153, 0.1);
+}
+
+.drawer-item-icon {
+  color: #00E599;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawer-item.active .drawer-item-icon {
+  color: #00E599;
+}
+
+/* Footer Sign out */
+.drawer-footer {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.drawer-signout-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  color: #ff5252;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.drawer-signout-btn:hover {
+  background: rgba(255, 82, 82, 0.12);
+}
