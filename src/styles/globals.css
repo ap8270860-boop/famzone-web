@@ -60,20 +60,43 @@
 box-sizing:border-box}
 *{
 margin:0}
-html{
-overflow-x:clip;
--webkit-text-size-adjust:100%}
-body{
-min-width:320px;
-min-height:100dvh;
-font-family:var(--font-body);
-font-size:16px;
-line-height:1.5;
-color:var(--ink);
-background:var(--ground-deep);
--webkit-font-smoothing:antialiased;
--moz-osx-font-smoothing:grayscale;
-overflow-x:clip}
+html {
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  background: #06111e;
+}
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #06111e;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+/* Custom dark scrollbar styling to prevent white browser scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #040d16;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 153, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 153, 0.45);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 153, 0.25) #040d16;
+}
 img,svg,video{
 display:block;
 max-width:100%}
@@ -297,4 +320,19 @@ a.link-item:focus-visible {
   cursor: not-allowed;
 }
 
+/* Custom styling for HTML5 date picker popup & icon */
+input[type="date"] {
+  color-scheme: dark;
+}
 
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.7) sepia(1) saturate(3) hue-rotate(110deg);
+  opacity: 0.9;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
