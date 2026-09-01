@@ -65,33 +65,42 @@ export default function EditProfile({ onBack }) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  const applyProfile = (data) => {
+    const privacy = data?.privacy || {};
+    setProfileData(prev => ({
+      ...prev,
+      fullName: data?.name || '',
+      username: data?.username || '',
+      about: data?.about || '',
+      dob: data?.date_of_birth || '',
+      gender: data?.gender || '',
+      bloodGroup: data?.blood_group || '',
+      email: data?.email || '',
+      mobile: data?.phone || '',
+      isMobileVerified: Boolean(data?.phone_verified),
+      emergencyMessage: privacy.emergency_message || '',
+      useSecurityPhotoPublicly: Boolean(data?.use_alternate_avatar),
+      showLastSeen: privacy.show_last_seen ?? true,
+      showOnlineStatus: privacy.show_online_status ?? true,
+      readReceipts: privacy.show_read_receipts ?? true,
+      allowGroupInvites: privacy.allow_group_invites ?? true,
+    }));
+    setProfilePhotoUrl(data?.avatar_url || null);
+    setSecurityPhotoUrl(data?.alternate_avatar_url || null);
+  };
+
   useEffect(() => {
     getProfile().then(({ data }) => {
-      const privacy = data?.privacy || {};
-      setProfileData(prev => ({
-        ...prev,
-        fullName: data?.name || '',
-        username: data?.username || '',
-        about: data?.about || '',
-        dob: data?.date_of_birth || '',
-        gender: data?.gender || '',
-        bloodGroup: data?.blood_group || '',
-        email: data?.email || '',
-        mobile: data?.phone || '',
-        isMobileVerified: Boolean(data?.phone_verified),
-        emergencyMessage: privacy.emergency_message || '',
-        useSecurityPhotoPublicly: Boolean(data?.use_alternate_avatar),
-        showLastSeen: privacy.show_last_seen ?? true,
-        showOnlineStatus: privacy.show_online_status ?? true,
-        readReceipts: privacy.show_read_receipts ?? true,
-        allowGroupInvites: privacy.allow_group_invites ?? true,
-      }));
-      setProfilePhotoUrl(data?.avatar_url || null);
+      applyProfile(data);
     }).catch(() => {});
   }, []);
 
   const handleChange = (field, value) => {
-    setProfileData(prev => ({ ...prev, [field]: value }));
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'mobile' && { isMobileVerified: false }),
+    }));
     setSaveSuccess(false);
     setSaveError('');
   };
@@ -116,13 +125,17 @@ export default function EditProfile({ onBack }) {
         show_online_status: profileData.showOnlineStatus,
         show_read_receipts: profileData.readReceipts,
         allow_group_invites: profileData.allowGroupInvites,
+        use_alternate_avatar: profileData.useSecurityPhotoPublicly,
         is_private: false,
       });
-      if (profilePhotoUrl?.startsWith('data:')) {
-        const blob = await (await fetch(profilePhotoUrl)).blob();
-        await uploadAvatar(new File([blob], 'profile.jpg', { type: blob.type }), 'primary');
-      }
-      setProfilePhotoUrl(response?.data?.avatar_url || profilePhotoUrl);
+      const uploadImage = async (dataUrl, slot) => {
+        if (!dataUrl?.startsWith('data:')) return;
+        const blob = await (await fetch(dataUrl)).blob();
+        await uploadAvatar(new File([blob], `${slot}.jpg`, { type: blob.type }), slot);
+      };
+      await uploadImage(profilePhotoUrl, 'primary');
+      await uploadImage(securityPhotoUrl, 'alternate');
+      if (response?.data) applyProfile(response.data.user || response.data);
       setSaving(false);
       setSaveSuccess(true);
     } catch (error) {
@@ -433,6 +446,7 @@ export default function EditProfile({ onBack }) {
                 value={profileData.mobile}
                 onChange={(e) => handleChange('mobile', e.target.value)}
                 placeholder="+91 98765 43210"
+                readOnly
               />
               {profileData.mobile && profileData.isMobileVerified && (
                 <span className="verified-badge">
