@@ -144,28 +144,43 @@ export default function HomeDashboard({ navigateTo }) {
           </div>
         </div>
 
-        {/* Days Streak Row */}
+        {/* Days Streak Row (Live Date India IST) */}
         <div className="checkin-days-row">
-          {[
-            { day: 'W', checked: false },
-            { day: 'T', checked: false },
-            { day: 'F', checked: false },
-            { day: 'S', checked: false },
-            { day: 'S', checked: true },
-            { day: 'M', checked: true },
-            { day: 'T', checked: isCheckedIn },
-          ].map((item, idx) => (
-            <div key={idx} className="day-col">
-              <span className="day-label">{item.day}</span>
-              <div className={`day-circle ${item.checked ? 'checked' : ''}`}>
-                {item.checked && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                )}
+          {(() => {
+            const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+            const now = new Date();
+            const istString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+            const todayIST = new Date(istString);
+            
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date(todayIST);
+              d.setDate(todayIST.getDate() - i);
+              const dayLetter = dayNames[d.getDay()];
+              const isToday = i === 0;
+              // Check status for today vs past days (using streak)
+              const checked = isToday ? isCheckedIn : (i <= Math.max(streakCount, 2));
+              days.push({
+                day: dayLetter,
+                checked: Boolean(checked),
+                isToday,
+                date: d.getDate(),
+              });
+            }
+
+            return days.map((item, idx) => (
+              <div key={idx} className={`day-col ${item.isToday ? 'today-col' : ''}`}>
+                <span className="day-label">{item.day}</span>
+                <div className={`day-circle ${item.checked ? 'checked' : ''}`}>
+                  {item.checked && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
 
         {/* Main Check-in Action Button */}

@@ -69,7 +69,7 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login', onVi
       const res = await registerUser(payload);
       setApiSuccessMsg(res.message || 'Account created! Enter the code sent to verify.');
       
-      const debugCode = import.meta.env.DEV ? (res.data?.otp?.debug_code || '') : '';
+      const debugCode = res.data?.otp?.debug_code || '';
       if (debugCode) {
         setDebugOtp(debugCode);
       }
@@ -108,7 +108,7 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login', onVi
         const res = await sendOtp(formData.countryCode, cleanMobile, 'login');
         setApiSuccessMsg(res.message || 'Verification code sent to your phone.');
         
-        const debugCode = import.meta.env.DEV ? (res.data?.otp?.debug_code || '') : '';
+        const debugCode = res.data?.otp?.debug_code || '';
         if (debugCode) {
           setDebugOtp(debugCode);
         }
@@ -141,7 +141,12 @@ export default function AuthModal({ isOpen, onClose, initialView = 'login', onVi
         if (err.errors?.reason === 'phone_unverified') {
           setApiError('Your number is not verified yet. Sending OTP...');
           try {
-            await sendOtp(formData.countryCode, cleanMobile, 'registration');
+            const resOtp = await sendOtp(formData.countryCode, cleanMobile, 'registration');
+            const debugCode = resOtp.data?.otp?.debug_code || '';
+            if (debugCode) {
+              setDebugOtp(debugCode);
+            }
+            setFormData(prev => ({ ...prev, otpCode: debugCode || '' }));
             setOtpPurpose('registration');
             setView('otp_verify');
           } catch (otpErr) {
