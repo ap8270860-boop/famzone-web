@@ -5,12 +5,14 @@ import EditProfile from './EditProfile.jsx';
 import NotificationsView from './NotificationsView.jsx';
 import HomeDashboard from './HomeDashboard.jsx';
 import MyCircles from './MyCircles.jsx';
+import { getFamilyMembers } from '../services/sfamilyApi.js';
 import './Home.css';
 
 export default function Home() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [authModal, setAuthModal] = useState({ isOpen: false, view: 'login' });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [familyMembers, setFamilyMembers] = useState([]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -26,6 +28,10 @@ export default function Home() {
     }
 
     return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    getFamilyMembers().then(setFamilyMembers).catch(() => setFamilyMembers([]));
   }, []);
 
   const navigateTo = (newPath) => {
@@ -64,8 +70,14 @@ export default function Home() {
     switch (currentPath) {
       case '/profile':
         return <EditProfile onBack={() => navigateTo('/home')} />;
+      case '/posts':
+        return <DrawerPage title="My Posts" description="Create, manage, and revisit posts shared with your circles." />;
+      case '/starred-messages':
+        return <DrawerPage title="Starred Messages" description="Keep important family messages easy to find." />;
+      case '/check-in-history':
+        return <DrawerPage title="Check-in History" description="Review your past safety check-ins and streaks." />;
       case '/circles':
-        return <MyCircles onBack={() => navigateTo('/home')} />;
+        return <MyCircles onBack={() => navigateTo('/home')} members={familyMembers} />;
       case '/location-sharing':
         return (
           <div className="home-card-view">
@@ -89,6 +101,8 @@ export default function Home() {
             <p>SFamily Premium Plan status, renewal dates, and feature upgrades.</p>
           </div>
         );
+      case '/blocked-accounts':
+        return <DrawerPage title="Blocked Accounts" description="Manage people you have blocked from contacting you." />;
       case '/help':
         return (
           <div className="home-card-view">
@@ -105,7 +119,7 @@ export default function Home() {
         );
       case '/home':
       default:
-        return <HomeDashboard navigateTo={navigateTo} />;
+        return <HomeDashboard navigateTo={navigateTo} familyMembers={familyMembers} />;
     }
   };
 
@@ -161,6 +175,15 @@ export default function Home() {
         onViewChange={handleModalViewChange}
         onSuccess={handleAuthSuccess}
       />
+    </div>
+  );
+}
+
+function DrawerPage({ title, description }) {
+  return (
+    <div className="home-card-view">
+      <h2>{title}</h2>
+      <p>{description}</p>
     </div>
   );
 }

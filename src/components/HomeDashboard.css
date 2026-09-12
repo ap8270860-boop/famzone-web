@@ -375,6 +375,16 @@
   height: 48px;
 }
 
+.family-initial-avatar {
+  display: grid;
+  place-items: center;
+  border: 2px solid #00E599;
+  border-radius: 50%;
+  background: #08273a;
+  color: #ffffff;
+  font-weight: 800;
+}
+
 .family-avatar-img {
   width: 48px;
   height: 48px;

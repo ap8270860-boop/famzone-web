@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import './Chat.css'
+import * as api from '../services/sfamilyApi'
+import { createEchoInstance } from '../services/echo'
 
-const CHATS_DATA = {
+const CHATS_DATA_MOCK = {
   Chats: [
     {
       id: 'freelancers',
@@ -89,22 +91,323 @@ function Chat() {
   const [inputText, setInputText] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const currentChatList = CHATS_DATA[activeTopTab] || CHATS_DATA['Chats']
-  const activeChat = CHATS_DATA['Chats'].find(c => c.id === activeChatId) || CHATS_DATA['Chats'][1]
+  // Real API state
+  const [currentUser, setCurrentUser] = useState(null)
+  const [apiConversations, setApiConversations] = useState([])
+  const [activeMessages, setActiveMessages] = useState([])
+  const [unreadCounts, setUnreadCounts] = useState({ unread: 0, threads: 0, requests: 0, archived: 0 })
+  const [presentMembers, setPresentMembers] = useState([])
+  const [typingUsers, setTypingUsers] = useState(new Set())
+  const [isApiConnected, setIsApiConnected] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
 
-  const handleSendMessage = (e) => {
+  const echoRef = useRef(null)
+  const roomChannelRef = useRef(null)
+  const lastTypingSentRef = useRef(0)
+  const typingTimersRef = useRef({})
+  const messagesEndRef = useRef(null)
+
+  const token = localStorage.getItem('sfamily_token')
+
+  // Auto-scroll to bottom on message update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [activeMessages])
+
+
+  // Helper to format initials & avatar color
+  const getInitials = (name) => {
+    if (!name) return '?'
+    const parts = name.trim().split(' ')
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+    return name.substring(0, 2).toUpperCase()
+  }
+
+  // 1. Initial Profile & Inbox Load
+  useEffect(() => {
+    if (!token) return
+
+    async function initChatData() {
+      try {
+        const profileRes = await api.getProfile()
+        if (profileRes.success && profileRes.data?.user) {
+          setCurrentUser(profileRes.data.user)
+        }
+
+        const convsRes = await api.getConversations({ state: activeTopTab === 'Notifications' ? 'pending' : 'accepted' })
+        if (convsRes.success && convsRes.data?.conversations) {
+          setApiConversations(convsRes.data.conversations)
+          setIsApiConnected(true)
+          if (convsRes.data.conversations.length > 0) {
+            setActiveChatId(convsRes.data.conversations[0].id)
+          }
+        }
+
+        const unreadRes = await api.getUnreadCount()
+        if (unreadRes.success && unreadRes.data) {
+          setUnreadCounts(unreadRes.data)
+        }
+      } catch (e) {
+        console.warn('Backend API not responding or unauthenticated, defaulting to demo view:', e)
+      }
+    }
+
+    initChatData()
+  }, [token, activeTopTab])
+
+  // 2. Presence Ping every 60 seconds
+  useEffect(() => {
+    if (!token || !isApiConnected) return
+    api.pingPresence().catch(() => {})
+    const interval = setInterval(() => {
+      api.pingPresence().catch(() => {})
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [token, isApiConnected])
+
+  // 3. User Mailbox Echo Subscription
+  useEffect(() => {
+    if (!token || !currentUser?.id) return
+    const echo = createEchoInstance(token)
+    echoRef.current = echo
+
+    const userChannel = echo.private(`user.${currentUser.id}`)
+      .listen('.inbox.updated', (thread) => {
+        setApiConversations(prev => {
+          const idx = prev.findIndex(c => c.id === thread.id)
+          if (idx >= 0) {
+            const updated = [...prev]
+            updated[idx] = { ...updated[idx], ...thread }
+            return updated
+          }
+          return [thread, ...prev]
+        })
+        api.markDelivered(thread.id).catch(() => {})
+      })
+      .listen('.conversation.closed', ({ conversation_id }) => {
+        setApiConversations(prev => prev.filter(c => c.id !== conversation_id))
+      })
+
+    return () => {
+      echo.leave(`user.${currentUser.id}`)
+    }
+  }, [token, currentUser?.id])
+
+  // 4. Fetch Active Chat Messages & Subscribe to Conversation + Presence Room Channels
+  useEffect(() => {
+    if (!token || !activeChatId || !isApiConnected) return
+
+    // Fetch message history
+    api.getMessages(activeChatId, { limit: 40 }).then(res => {
+      if (res.success && res.data?.messages) {
+        // Sort strictly by seq
+        const sorted = [...res.data.messages].sort((a, b) => a.seq - b.seq)
+        setActiveMessages(sorted)
+        // Mark read
+        if (sorted.length > 0) {
+          const lastMsg = sorted[sorted.length - 1]
+          api.markRead(activeChatId, lastMsg.id).catch(() => {})
+        }
+      }
+    }).catch(() => {})
+
+    // Echo channels
+    const echo = echoRef.current
+    if (!echo) return
+
+    const convChannel = echo.private(`conversation.${activeChatId}`)
+      .listen('.message.sent', (newMsg) => {
+        setActiveMessages(prev => {
+          // Deduplicate on client_id or id
+          if (prev.some(m => m.client_id === newMsg.client_id || m.id === newMsg.id)) {
+            return prev.map(m => (m.client_id === newMsg.client_id || m.id === newMsg.id) ? newMsg : m)
+          }
+          return [...prev, newMsg].sort((a, b) => a.seq - b.seq)
+        })
+        api.markRead(activeChatId, newMsg.id).catch(() => {})
+      })
+      .listen('.receipts.updated', (receipts) => {
+        setApiConversations(prev => prev.map(c => {
+          if (c.id === receipts.conversation_id) {
+            return {
+              ...c,
+              me: { ...c.me, last_read_seq: receipts.last_read_seq, last_delivered_seq: receipts.last_delivered_seq },
+              other: c.other ? { ...c.other, last_read_seq: receipts.last_read_seq, last_delivered_seq: receipts.last_delivered_seq } : null
+            }
+          }
+          return c
+        }))
+      })
+      .listen('.message.reacted', ({ message_id, reactions }) => {
+        setActiveMessages(prev => prev.map(m => m.id === message_id ? { ...m, reactions } : m))
+      })
+      .listen('.conversation.pinned', ({ conversation_id, pinned_message }) => {
+        setApiConversations(prev => prev.map(c => c.id === conversation_id ? { ...c, pinned_message } : c))
+      })
+
+    const room = echo.join(`room.${activeChatId}`)
+      .here((members) => setPresentMembers(members))
+      .joining((m) => setPresentMembers(prev => [...prev, m]))
+      .leaving((m) => setPresentMembers(prev => prev.filter(p => p.id !== m.id)))
+      .listenForWhisper('typing', ({ state, user_id }) => {
+        if (!user_id) return
+        setTypingUsers(prev => {
+          const next = new Set(prev)
+          if (state === 'typing') next.add(user_id)
+          else next.delete(user_id)
+          return next
+        })
+
+        // Auto expire after 6 seconds
+        if (typingTimersRef.current[user_id]) clearTimeout(typingTimersRef.current[user_id])
+        if (state === 'typing') {
+          typingTimersRef.current[user_id] = setTimeout(() => {
+            setTypingUsers(prev => {
+              const next = new Set(prev)
+              next.delete(user_id)
+              return next
+            })
+          }, 6000)
+        }
+      })
+
+    roomChannelRef.current = room
+
+    return () => {
+      echo.leave(`conversation.${activeChatId}`)
+      echo.leave(`room.${activeChatId}`)
+      roomChannelRef.current = null
+    }
+  }, [token, activeChatId, isApiConnected])
+
+  // Typing whisper emitter
+  const handleTypingInput = (e) => {
+    setInputText(e.target.value)
+
+    if (roomChannelRef.current) {
+      const now = Date.now()
+      if (now - lastTypingSentRef.current > 2000) {
+        lastTypingSentRef.current = now
+        roomChannelRef.current.whisper('typing', {
+          state: 'typing',
+          user_id: currentUser?.id
+        })
+      }
+    }
+  }
+
+  // Send Message Handler
+  const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!inputText.trim()) return
-    const newMsg = {
-      id: Date.now(),
-      sender: 'Abbas Wangde',
-      text: inputText,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isSelf: true
-    }
-    if (!activeChat.messages) activeChat.messages = []
-    activeChat.messages.push(newMsg)
+
+    const bodyText = inputText.trim()
     setInputText('')
+
+    // Emit stopped typing whisper
+    if (roomChannelRef.current && currentUser?.id) {
+      roomChannelRef.current.whisper('typing', { state: 'stopped', user_id: currentUser.id })
+    }
+
+    if (isApiConnected) {
+      const client_uuid = crypto.randomUUID()
+      // Optimistic Bubble
+      const optimisticMsg = {
+        id: client_uuid,
+        client_id: client_uuid,
+        seq: Date.now(),
+        sender_id: currentUser?.id,
+        type: 'text',
+        body: bodyText,
+        created_at: new Date().toISOString(),
+        isSelf: true
+      }
+      setActiveMessages(prev => [...prev, optimisticMsg])
+
+      try {
+        const res = await api.sendMessage(activeChatId, {
+          client_uuid,
+          type: 'text',
+          body: bodyText
+        })
+        if (res.success && res.data) {
+          // Replace optimistic message with real server response
+          setActiveMessages(prev => prev.map(m => m.client_id === client_uuid ? res.data : m))
+        }
+      } catch (err) {
+        console.error('Failed to send message:', err)
+      }
+    } else {
+      // Demo Fallback
+      const activeChat = CHATS_DATA_MOCK['Chats'].find(c => c.id === activeChatId) || CHATS_DATA_MOCK['Chats'][1]
+      const newMsg = {
+        id: Date.now(),
+        sender: currentUser?.name || 'Abbas Wangde',
+        text: bodyText,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isSelf: true
+      }
+      if (!activeChat.messages) activeChat.messages = []
+      activeChat.messages.push(newMsg)
+    }
+  }
+
+  // File Upload Handler
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !isApiConnected) return
+
+    setUploadingFile(true)
+    try {
+      const uploadRes = await api.uploadMedia(file, 'image')
+      if (uploadRes.success && uploadRes.data?.id) {
+        const client_uuid = crypto.randomUUID()
+        await api.sendMessage(activeChatId, {
+          client_uuid,
+          type: 'image',
+          upload_id: uploadRes.data.id,
+          body: file.name
+        })
+      }
+    } catch (err) {
+      console.error('File upload failed:', err)
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  // Determine current active chat & list
+  let currentChatList = []
+  let activeChat = null
+
+  if (isApiConnected) {
+    currentChatList = apiConversations.map(c => {
+      const isGroup = !!c.group
+      const title = isGroup ? c.group.title : (c.other?.name || 'Conversation')
+      const avatarStr = getInitials(title)
+      const lastMsgText = c.last_message?.body || (c.last_message?.type ? `[${c.last_message.type}]` : 'No messages yet')
+      const timeStr = c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+      
+      return {
+        id: c.id,
+        name: title,
+        subtitle: isGroup ? `${c.group.members_count} members` : (c.other?.online ? 'Online' : 'Offline'),
+        avatar: avatarStr,
+        avatarBg: isGroup ? '#10b981' : '#0284c7',
+        time: timeStr,
+        unread: c.unread_count || 0,
+        lastMsg: lastMsgText,
+        online: c.other?.online,
+        isGroup,
+        raw: c
+      }
+    })
+
+    const found = currentChatList.find(c => c.id === activeChatId)
+    activeChat = found || currentChatList[0] || { name: 'Chat', subtitle: '' }
+  } else {
+    currentChatList = CHATS_DATA_MOCK[activeTopTab] || CHATS_DATA_MOCK['Chats']
+    activeChat = currentChatList.find(c => c.id === activeChatId) || CHATS_DATA_MOCK['Chats'][1]
   }
 
   const filteredChats = currentChatList.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -126,7 +429,7 @@ function Chat() {
           >
             <div className="icon-wrapper">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              <span className="icon-bar__badge">33</span>
+              {unreadCounts.unread > 0 && <span className="icon-bar__badge">{unreadCounts.unread}</span>}
             </div>
             <span>Messenger</span>
           </button>
@@ -181,128 +484,56 @@ function Chat() {
             </div>
             <span>Docs</span>
           </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'Boards' ? 'active' : ''}`}
-            onClick={() => setActiveSideTab('Boards')}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-            </div>
-            <span>Boards</span>
-          </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'Drive' ? 'active' : ''}`}
-            onClick={() => setActiveSideTab('Drive')}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            </div>
-            <span>Drive</span>
-          </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'Webmail' ? 'active' : ''}`}
-            onClick={() => setActiveSideTab('Webmail')}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            </div>
-            <span>Webmail</span>
-          </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'Groups' ? 'active' : ''}`}
-            onClick={() => setActiveSideTab('Groups')}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            </div>
-            <span>Groups</span>
-          </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'Tasks' ? 'active' : ''}`}
-            onClick={() => { setActiveSideTab('Tasks'); setActiveTopTab('Task chats'); }}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              <span className="icon-bar__badge icon-bar__badge--purple">99</span>
-            </div>
-            <span>Tasks</span>
-          </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'Booking' ? 'active' : ''}`}
-            onClick={() => setActiveSideTab('Booking')}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
-            </div>
-            <span>Booking</span>
-          </button>
-
-          <button 
-            className={`icon-bar__item ${activeSideTab === 'BI' ? 'active' : ''}`}
-            onClick={() => setActiveSideTab('BI')}
-          >
-            <div className="icon-wrapper">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-            </div>
-            <span>BI</span>
-          </button>
         </nav>
 
         <div className="icon-bar__bottom">
-          <div className="user-avatar-initials">AW</div>
+          <div className="user-avatar-initials">{getInitials(currentUser?.name || 'AW')}</div>
         </div>
       </aside>
 
       {/* RIGHT MAIN WORKSPACE */}
       <div className="bitrix-main-content">
         
-        {/* MATCHED HEADER ROW: tabs and active conversation header share one baseline */}
+        {/* HEADER ROW */}
         <div className="bitrix-header-row">
-        <header className="bitrix-top-nav">
-          <div className="top-nav__tabs">
-            {['Chats', 'Task chats', 'CoPilot', 'Collabs', 'Channels', 'Open Channels', 'Notifications', 'More⌄'].map((tab) => (
-              <button
-                key={tab}
-                className={`top-nav__tab ${activeTopTab === tab ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveTopTab(tab)
-                  const list = CHATS_DATA[tab]
-                  if (list && list[0]) {
-                    setActiveChatId(list[0].id)
-                  }
-                }}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </header>
+          <header className="bitrix-top-nav">
+            <div className="top-nav__tabs">
+              {['Chats', 'Task chats', 'CoPilot', 'Collabs', 'Channels', 'Notifications'].map((tab) => (
+                <button
+                  key={tab}
+                  className={`top-nav__tab ${activeTopTab === tab ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTopTab(tab)
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </header>
 
-        <div className="feed-header">
-          <div className="feed-header__left">
-            <div className="feed-avatar" style={{ backgroundColor: activeChat.avatarBg }}>{activeChat.avatar}</div>
-            <div className="feed-title-info">
-              <h3>{activeChat.name}</h3>
-              <span>{activeChat.subtitle || '44 members'}</span>
+          <div className="feed-header">
+            <div className="feed-header__left">
+              <div className="feed-avatar" style={{ backgroundColor: activeChat?.avatarBg || '#0284c7' }}>
+                {activeChat?.avatar || 'SF'}
+              </div>
+              <div className="feed-title-info">
+                <h3>{activeChat?.name || 'SFamily Chat'}</h3>
+                <span>
+                  {typingUsers.size > 0 
+                    ? 'typing...' 
+                    : activeChat?.subtitle || 'Direct conversation'}
+                </span>
+              </div>
+            </div>
+            <div className="feed-header__right">
+              <button className="voice-call-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                Voice call
+              </button>
+              <button className="icon-btn" title="Search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
             </div>
           </div>
-          <div className="feed-header__right">
-            <button className="voice-call-btn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0  .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-              Voice call
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <button className="icon-btn" title="Add users"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></button>
-            <button className="icon-btn" title="Search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
-            <button className="icon-btn" title="More options"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
-          </div>
-        </div>
         </div>
 
         {/* 2-COLUMN CHAT CONTAINER */}
@@ -320,9 +551,6 @@ function Chat() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <button className="edit-btn" title="New Message">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              </button>
             </div>
 
             <div className="chat-cards-list">
@@ -346,18 +574,7 @@ function Chat() {
                     </div>
 
                     <div className="chat-card__footer">
-                      {chat.typing ? (
-                        <span className="typing-indicator">
-                          typing{' '}
-                          <span className="typing-dots">
-                            <span className="dot"></span>
-                            <span className="dot"></span>
-                            <span className="dot"></span>
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="chat-card__snippet">{chat.lastMsg}</span>
-                      )}
+                      <span className="chat-card__snippet">{chat.lastMsg}</span>
                       {chat.unread > 0 && <span className="unread-badge">{chat.unread}</span>}
                     </div>
                   </div>
@@ -371,54 +588,79 @@ function Chat() {
             
             {/* MESSAGES SCROLL AREA */}
             <div className="feed-messages">
-              {activeChat.messages && activeChat.messages.map((msg) => (
-                <div key={msg.id} className={`msg-group ${msg.isSelf ? 'msg-group--self' : ''}`}>
-                  {!msg.isSelf && (
-                    <div className="msg-avatar" style={{ backgroundColor: msg.avatarBg || '#0284c7' }}>
-                      {msg.avatar}
-                    </div>
-                  )}
+              {isApiConnected ? (
+                activeMessages.map((msg) => {
+                  const isSelf = msg.sender_id === currentUser?.id || msg.isSelf
+                  const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : msg.time
 
-                  <div className="msg-card">
-                    {!msg.isSelf && msg.sender && (
-                      <div className="msg-sender" style={{ color: msg.senderColor || '#38bdf8' }}>
-                        {msg.sender}
+                  return (
+                    <div key={msg.id || msg.client_id} className={`msg-group ${isSelf ? 'msg-group--self' : ''}`}>
+                      {!isSelf && (
+                        <div className="msg-avatar" style={{ backgroundColor: '#0284c7' }}>
+                          {getInitials(msg.sender?.name || 'User')}
+                        </div>
+                      )}
+
+                      <div className="msg-card">
+                        {!isSelf && msg.sender?.name && (
+                          <div className="msg-sender" style={{ color: '#38bdf8' }}>
+                            {msg.sender.name}
+                          </div>
+                        )}
+                        {msg.deleted ? (
+                          <p className="msg-text msg-deleted">This message was deleted</p>
+                        ) : (
+                          <p className="msg-text">{msg.body || msg.text}</p>
+                        )}
+                        <div className="msg-time">
+                          {timeStr} {isSelf && <span className="check-icon">✓✓</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                activeChat?.messages?.map((msg) => (
+                  <div key={msg.id} className={`msg-group ${msg.isSelf ? 'msg-group--self' : ''}`}>
+                    {!msg.isSelf && (
+                      <div className="msg-avatar" style={{ backgroundColor: msg.avatarBg || '#0284c7' }}>
+                        {msg.avatar}
                       </div>
                     )}
-                    <p className="msg-text">{msg.text}</p>
-                    <div className="msg-time">{msg.time} {msg.isSelf && <span className="check-icon">✓✓</span>}</div>
+                    <div className="msg-card">
+                      {!msg.isSelf && msg.sender && (
+                        <div className="msg-sender" style={{ color: msg.senderColor || '#38bdf8' }}>
+                          {msg.sender}
+                        </div>
+                      )}
+                      <p className="msg-text">{msg.text}</p>
+                      <div className="msg-time">{msg.time} {msg.isSelf && <span className="check-icon">✓✓</span>}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
-
-              {activeChat.messages && activeChat.messages.find(m => m.seen) && (
-                <div className="seen-by-status">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  {activeChat.messages.find(m => m.seen).seen}
-                </div>
+                ))
               )}
+              <div ref={messagesEndRef} />
             </div>
+
 
             {/* COMPOSER BAR */}
             <div className="feed-composer-wrapper">
               <form className="feed-composer" onSubmit={handleSendMessage}>
-                <button type="button" className="composer-icon-btn" title="Attach file">
+                <label className="composer-icon-btn" title="Attach file">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                </button>
+                  <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploadingFile} />
+                </label>
 
                 <input
                   type="text"
-                  placeholder="Type @ or + to mention a person, a chat or AI"
+                  placeholder={uploadingFile ? "Uploading attachment..." : "Type @ or + to mention a person, a chat or AI"}
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={handleTypingInput}
+                  disabled={uploadingFile}
                 />
 
-                <button type="button" className="composer-icon-btn" title="Emoji">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                </button>
-
-                <button type="button" className="composer-round-btn" title="Voice note">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <button type="submit" className="composer-round-btn" title="Send">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
               </form>
             </div>
@@ -429,10 +671,10 @@ function Chat() {
 
       </div>
 
-      {/* Floating Help Badge Bottom-Right */}
       <div className="floating-help-badge">?</div>
     </div>
   )
 }
 
 export default Chat
+

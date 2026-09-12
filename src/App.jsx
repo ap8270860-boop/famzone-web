@@ -7,11 +7,15 @@ import Home from './components/Home.jsx'
 const HOME_ROUTES = new Set([
   '/home',
   '/profile',
+  '/posts',
+  '/starred-messages',
+  '/check-in-history',
   '/circles',
   '/location-sharing',
   '/safety-settings',
   '/notifications',
   '/subscription',
+  '/blocked-accounts',
   '/help',
   '/privacy-policy',
 ])

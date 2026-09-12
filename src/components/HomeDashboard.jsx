@@ -3,7 +3,7 @@ import SosModal from './SosModal.jsx';
 import { checkIn, getSafetyStatus } from '../services/sfamilyApi.js';
 import './HomeDashboard.css';
 
-export default function HomeDashboard({ navigateTo }) {
+export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [streakCount, setStreakCount] = useState(0);
   const [sosModalOpen, setSosModalOpen] = useState(false);
@@ -205,15 +205,13 @@ export default function HomeDashboard({ navigateTo }) {
         </div>
 
         <div className="family-cards-row">
-          {/* Member Card */}
-          <div className="family-card" onClick={() => navigateTo && navigateTo('/circles')}>
-            <div className="family-avatar-wrap">
-              <img src="/glowinn-logo.jpeg" alt="Faisal Khan" className="family-avatar-img" />
-              <span className="online-dot" />
+          {familyMembers.slice(0, 3).map((member) => (
+            <div className="family-card" key={member.id} onClick={() => navigateTo && navigateTo('/circles')}>
+              <div className="family-avatar-wrap family-initial-avatar"><span>{member.initials}</span><span className="online-dot" /></div>
+              <span className="family-name">{member.name}</span>
+              <span className="family-role">{member.relationship}</span>
             </div>
-            <span className="family-name">Faisal Kh...</span>
-            <span className="family-role">Brother</span>
-          </div>
+          ))}
 
           {/* Add Family Card */}
           <button className="add-family-card" onClick={() => navigateTo && navigateTo('/circles')}>

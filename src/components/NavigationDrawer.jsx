@@ -6,16 +6,25 @@ export default function NavigationDrawer({ currentPath, onNavigate, isStatic = f
   const [showNotifPopover, setShowNotifPopover] = React.useState(false);
 
   const navItems = [
-    { label: 'Home', path: '/home', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-      </svg>
-    )},
     { label: 'My profile', path: '/profile', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+    )},
+    { label: 'My posts', path: '/posts', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect>
+      </svg>
+    )},
+    { label: 'Starred messages', path: '/starred-messages', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="12 2.5 15 8.7 21.8 9.7 16.9 14.5 18.1 21.3 12 18.1 5.9 21.3 7.1 14.5 2.2 9.7 9 8.7 12 2.5"></polygon>
+      </svg>
+    )},
+    { label: 'Check-in history', path: '/check-in-history', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 3v4M17 3v4M7 13l3 3 6-6"></path>
       </svg>
     )},
     { label: 'My circles', path: '/circles', icon: (
@@ -47,6 +56,11 @@ export default function NavigationDrawer({ currentPath, onNavigate, isStatic = f
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="8" r="7"></circle>
         <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+      </svg>
+    )},
+    { label: 'Blocked accounts', path: '/blocked-accounts', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9"></circle><path d="M5.6 5.6l12.8 12.8"></path>
       </svg>
     )},
   ];

@@ -287,6 +287,32 @@ export async function getFamily() {
   return await apiFetch('/family', { method: 'GET' });
 }
 
+export async function getFamilyMembers() {
+  const response = await getFamily();
+  const payload = response.data;
+  const entries = Array.isArray(payload) ? payload : (payload?.members || payload?.family || payload?.results || []);
+
+  return entries.map((entry) => {
+    const user = entry.user || entry.member || entry;
+    const name = user.name || user.full_name || user.username || 'Family member';
+    return {
+      id: String(entry.id || user.id),
+      initials: name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
+      avatar: user.avatar_url || user.avatar || null,
+      username: user.username ? `@${user.username.replace(/^@/, '')}` : '',
+      name,
+      bio: user.about || user.bio || '',
+      relationship: entry.relation || entry.relationship || user.relationship?.family_relation || 'Family',
+      phone: user.phone || user.phone_number || '',
+      followers: user.counts?.followers || user.followers_count || 0,
+      following: user.counts?.following || user.following_count || 0,
+      familyCount: user.counts?.family || user.family_count || 0,
+      posts: user.counts?.posts || user.posts_count || 0,
+      isFollowing: user.relationship?.following === 'accepted' || Boolean(user.is_following),
+    };
+  });
+}
+
 export async function inviteToFamily(userId, relation) {
   return await apiFetch(`/users/${encodeURIComponent(userId)}/family`, {
     method: 'POST',
@@ -336,4 +362,197 @@ export async function markNotificationRead(notificationId) {
 
 export async function markAllNotificationsRead() {
   return await apiFetch('/notifications/read-all', { method: 'POST' });
+}
+
+/**
+ * ==========================================
+ * CHAT API V1 ENDPOINTS
+ * ==========================================
+ */
+
+/** Conversations */
+export async function getConversations({ state = 'accepted', page = 1 } = {}) {
+  const query = new URLSearchParams({ state, page }).toString();
+  return await apiFetch(`/conversations?${query}`, { method: 'GET' });
+}
+
+export async function getUnreadCount() {
+  return await apiFetch('/conversations/unread-count', { method: 'GET' });
+}
+
+export async function createDirectConversation(userId) {
+  return await apiFetch('/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function getConversation(uuid) {
+  return await apiFetch(`/conversations/${encodeURIComponent(uuid)}`, { method: 'GET' });
+}
+
+export async function acceptConversation(uuid) {
+  return await apiFetch(`/conversations/${encodeURIComponent(uuid)}/accept`, { method: 'POST' });
+}
+
+export async function deleteConversation(uuid) {
+  return await apiFetch(`/conversations/${encodeURIComponent(uuid)}`, { method: 'DELETE' });
+}
+
+/** Messages */
+export async function getMessages(conversationId, { before, after, limit = 40 } = {}) {
+  const params = new URLSearchParams();
+  if (before) params.append('before', before);
+  if (after) params.append('after', after);
+  if (limit) params.append('limit', limit);
+  
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`, {
+    method: 'GET',
+  });
+}
+
+export async function sendMessage(conversationId, { client_uuid, type = 'text', body, upload_id, reply_to_id }) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({
+      client_uuid,
+      type,
+      ...(body !== undefined && { body }),
+      ...(upload_id && { upload_id }),
+      ...(reply_to_id && { reply_to_id }),
+    }),
+  });
+}
+
+export async function deleteMessage(messageId) {
+  return await apiFetch(`/messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' });
+}
+
+export async function hideMessage(messageId) {
+  return await apiFetch(`/messages/${encodeURIComponent(messageId)}/hide`, { method: 'POST' });
+}
+
+export async function getMessageInfo(messageId) {
+  return await apiFetch(`/messages/${encodeURIComponent(messageId)}/info`, { method: 'GET' });
+}
+
+/** Receipts */
+export async function markRead(conversationId, messageId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/read`, {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId }),
+  });
+}
+
+export async function markDelivered(conversationId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/delivered`, {
+    method: 'POST',
+  });
+}
+
+/** Message Actions */
+export async function reactToMessage(messageId, emoji) {
+  return await apiFetch(`/messages/${encodeURIComponent(messageId)}/react`, {
+    method: 'POST',
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function starMessage(messageId) {
+  return await apiFetch(`/messages/${encodeURIComponent(messageId)}/star`, { method: 'POST' });
+}
+
+export async function getStarredMessages(page = 1) {
+  return await apiFetch(`/starred-messages?page=${encodeURIComponent(page)}`, { method: 'GET' });
+}
+
+export async function forwardMessage(messageId, conversationIds) {
+  return await apiFetch(`/messages/${encodeURIComponent(messageId)}/forward`, {
+    method: 'POST',
+    body: JSON.stringify({ conversation_ids: conversationIds }),
+  });
+}
+
+export async function pinMessage(conversationId, messageId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/pin`, {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId }),
+  });
+}
+
+/** Thread Settings */
+export async function pinChat(conversationId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/pin-chat`, { method: 'POST' });
+}
+
+export async function archiveChat(conversationId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/archive`, { method: 'POST' });
+}
+
+export async function muteChat(conversationId, hours = null) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/mute`, {
+    method: 'POST',
+    body: JSON.stringify({ muted: true, ...(hours && { hours }) }),
+  });
+}
+
+export async function markUnread(conversationId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/unread`, { method: 'POST' });
+}
+
+export async function clearThread(conversationId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/clear`, { method: 'POST' });
+}
+
+/** Groups */
+export async function getGroupCandidates(scope = 'connections') {
+  return await apiFetch(`/conversations/group-candidates?scope=${encodeURIComponent(scope)}`, { method: 'GET' });
+}
+
+export async function createGroup(payload) {
+  let options = { method: 'POST' };
+  if (payload instanceof FormData) {
+    options.body = payload;
+  } else {
+    options.body = JSON.stringify(payload);
+  }
+  return await apiFetch('/conversations/group', options);
+}
+
+export async function updateGroup(conversationId, payload) {
+  let options = { method: 'POST' };
+  if (payload instanceof FormData) {
+    options.body = payload;
+  } else {
+    options.body = JSON.stringify(payload);
+  }
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/group`, options);
+}
+
+export async function removeGroupMember(conversationId, userId) {
+  return await apiFetch(`/conversations/${encodeURIComponent(conversationId)}/members/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  });
+}
+
+/** Uploads & Media */
+export async function uploadMedia(file, type = 'image', extraParams = {}) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', type);
+
+  if (type === 'audio') {
+    if (extraParams.duration_ms) formData.append('duration_ms', extraParams.duration_ms);
+    if (extraParams.waveform) formData.append('waveform', JSON.stringify(extraParams.waveform));
+  }
+
+  return await apiFetch('/uploads', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/** Presence Ping */
+export async function pingPresence() {
+  return await apiFetch('/presence/ping', { method: 'POST' });
 }
