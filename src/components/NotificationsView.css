@@ -232,7 +232,9 @@
 }
 
 .notif-page-title {
-  font-size: 28px;
+  line-height: var(--family-line-heading);
+  overflow-wrap: anywhere;
+  font-size: var(--family-type-title);
   font-weight: 800;
   color: #ffffff;
   margin: 0 0 6px 0;
@@ -345,7 +347,7 @@
 
 .notif-card-title {
   margin: 0;
-  font-size: 15.5px;
+  font-size: var(--family-type-control);
   font-weight: 700;
   color: #ffffff;
 }
@@ -398,7 +400,7 @@
 }
 
 .notif-empty-full h3 {
-  font-size: 18px;
+  font-size: var(--family-type-section);
   color: #ffffff;
   margin: 0 0 6px 0;
 }

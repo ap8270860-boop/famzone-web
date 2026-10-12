@@ -1,67 +1,11 @@
 import React, { useState } from 'react';
-import { getNotifications, markAllNotificationsRead, markNotificationRead } from '../services/sfamilyApi.js';
+import { getNotifications, markAllNotificationsRead, markNotificationRead, respondToFollowRequest, respondToFamilyInvite, respondToAlarmWatch } from '../services/sfamilyApi.js';
 import './NotificationsView.css';
 
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: 'Safe Zone Alert',
-    message: 'Aarav reached Home Safe Zone',
-    time: '5 mins ago',
-    type: 'safety',
-    unread: true,
-    avatar: '🏠',
-    iconBg: 'rgba(0, 229, 153, 0.15)',
-    iconColor: '#00E599'
-  },
-  {
-    id: 2,
-    title: 'Check-in Reminder',
-    message: 'Scheduled check-in with Family Circle at 7:00 PM',
-    time: '25 mins ago',
-    type: 'circle',
-    unread: true,
-    avatar: '⏰',
-    iconBg: 'rgba(56, 189, 248, 0.15)',
-    iconColor: '#38bdf8'
-  },
-  {
-    id: 3,
-    title: 'Low Battery Alert',
-    message: "Dad's phone battery is below 15%",
-    time: '1 hour ago',
-    type: 'alert',
-    unread: false,
-    avatar: '🔋',
-    iconBg: 'rgba(251, 146, 60, 0.15)',
-    iconColor: '#fb923c'
-  },
-  {
-    id: 4,
-    title: 'Circle Invite Accepted',
-    message: 'Priya joined your "Weekend Family" circle',
-    time: '2 hours ago',
-    type: 'circle',
-    unread: false,
-    avatar: '🎉',
-    iconBg: 'rgba(168, 85, 247, 0.15)',
-    iconColor: '#a855f7'
-  },
-  {
-    id: 5,
-    title: 'Emergency SOS Test',
-    message: 'System SOS test completed successfully',
-    time: 'Yesterday',
-    type: 'system',
-    unread: false,
-    avatar: '🛡️',
-    iconBg: 'rgba(99, 102, 241, 0.15)',
-    iconColor: '#6366f1'
-  }
-];
-
 export default function NotificationsView({ onNavigate, isPopover = false, onClosePopover }) {
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'unread'
 
   React.useEffect(() => {
@@ -71,6 +15,7 @@ export default function NotificationsView({ onNavigate, isPopover = false, onClo
         if (!Array.isArray(items)) return;
         setNotifications(items.map((item) => ({
           id: item.id,
+          action: item.action,
           title: item.type?.replaceAll('.', ' ') || 'Notification',
           message: item.message,
           time: item.created_at ? new Date(item.created_at).toLocaleString() : '',
@@ -82,20 +27,31 @@ export default function NotificationsView({ onNavigate, isPopover = false, onClo
           iconColor: '#38bdf8',
         })));
       })
-      .catch(() => {
-        // Keep the local empty-state content if the feed is unavailable.
-      });
+      .catch(e => setError(e.message || 'Unable to load notifications.'));
   }, []);
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-    markAllNotificationsRead().catch(() => {});
+  const markAllAsRead = async () => {
+    try { await markAllNotificationsRead(); setNotifications(prev => prev.map(n => ({ ...n, unread: false }))); }
+    catch(e) { setError(e.message); }
   };
-
-  const markAsRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
-    markNotificationRead(id).catch(() => {});
+  const markAsRead = async (id) => {
+    try { await markNotificationRead(id); setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n)); }
+    catch(e) { setError(e.message); }
+    const action = notifications.find(n => n.id === id)?.action;
+    if (action?.alarm_id) { onClosePopover?.(); onNavigate?.(`/alarms/${encodeURIComponent(action.alarm_id)}`); }
   };
+  const answerAction = async (item, accept) => {
+    if (pending) return; setPending(item.id); setError('');
+    try {
+      const a = item.action;
+      if (a.kind === 'family_invite') await respondToFamilyInvite(a.invite_id,accept);
+      else if (a.kind === 'follow_request') await respondToFollowRequest(a.request_id,accept);
+      else await respondToAlarmWatch(a.request_id || a.step_id,accept);
+      await markNotificationRead(item.id);
+      setNotifications(prev => prev.map(n => n.id === item.id ? {...n,action:null,unread:false} : n));
+    } catch(e) { setError(e.message); } finally { setPending(null); }
+  };
+  const actionButtons = item => item.action && ['family_invite','follow_request','alarm_watch'].includes(item.action.kind) && <span onClick={e => e.stopPropagation()}><button disabled={pending !== null} onClick={() => answerAction(item,true)}>{item.action.kind === 'alarm_watch' ? "I'll help" : 'Accept'}</button><button disabled={pending !== null} onClick={() => answerAction(item,false)}>{item.action.kind === 'alarm_watch' ? 'Pass on' : 'Decline'}</button></span>;
 
   const clearNotification = (e, id) => {
     e.stopPropagation();
@@ -131,7 +87,7 @@ export default function NotificationsView({ onNavigate, isPopover = false, onClo
           </div>
         </div>
 
-        <div className="notif-popover-list">
+        <div className="notif-popover-list">{error && <p role="alert">{error}</p>}
           {filteredNotifications.length === 0 ? (
             <div className="notif-empty-state">
               <span className="notif-empty-icon">🔔</span>
@@ -150,7 +106,7 @@ export default function NotificationsView({ onNavigate, isPopover = false, onClo
                 <div className="notif-body">
                   <div className="notif-title">{item.title}</div>
                   <div className="notif-msg">{item.message}</div>
-                  <div className="notif-time">{item.time}</div>
+                  <div className="notif-time">{item.time}</div>{actionButtons(item)}
                 </div>
                 {item.unread && <span className="notif-unread-dot" />}
               </div>
@@ -202,7 +158,7 @@ export default function NotificationsView({ onNavigate, isPopover = false, onClo
         </button>
       </div>
 
-      <div className="notif-full-list">
+      <div className="notif-full-list">{error && <p role="alert">{error}</p>}
         {filteredNotifications.length === 0 ? (
           <div className="notif-empty-full">
             <span className="notif-empty-icon-lg">🎉</span>
@@ -224,7 +180,7 @@ export default function NotificationsView({ onNavigate, isPopover = false, onClo
                   <h4 className="notif-card-title">{item.title}</h4>
                   <span className="notif-card-time">{item.time}</span>
                 </div>
-                <p className="notif-card-msg">{item.message}</p>
+                <p className="notif-card-msg">{item.message}</p>{actionButtons(item)}
               </div>
               <button 
                 className="notif-delete-btn"

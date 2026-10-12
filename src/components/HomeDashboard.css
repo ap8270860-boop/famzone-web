@@ -21,7 +21,9 @@
 }
 
 .dash-greeting {
-  font-size: 26px;
+  line-height: var(--family-line-heading);
+  overflow-wrap: anywhere;
+  font-size: var(--family-type-title);
   font-weight: 800;
   color: #ffffff;
   margin: 0 0 6px 0;
@@ -68,7 +70,7 @@
 }
 
 .dash-status-text h2 {
-  font-size: 22px;
+  font-size: var(--family-type-emphasis);
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 4px 0;
@@ -294,7 +296,7 @@
   border: none;
   background: linear-gradient(135deg, #00E599 0%, #00C885 100%);
   color: #06111e;
-  font-size: 17px;
+  font-size: var(--family-type-control);
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -329,7 +331,7 @@
 }
 
 .section-header h2 {
-  font-size: 19px;
+  font-size: var(--family-type-section);
   font-weight: 700;
   margin: 0;
   color: #ffffff;

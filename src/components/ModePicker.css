@@ -1,0 +1,75 @@
+/* Hallmark · mode picker · existing navy theme · server-colored selection tiles
+ * pre-emit critique: P4 H5 E4 S5 R5 V4
+ */
+.mode-picker {
+  --mode-ground: var(--family-panel-muted);
+  --mode-colour: var(--family-focus);
+  --mode-error: #ff8898;
+  --mode-transparent: transparent;
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  align-self: flex-start;
+  padding: 12px 16px 32px;
+  color: var(--family-ink);
+  font-size: var(--family-type-body);
+}
+.mode-picker-heading { position: relative; margin-bottom: 48px; padding: 0 24px; text-align: center; }
+.mode-picker-heading h1 { margin: 0 0 8px; font-size: var(--family-type-title); line-height: var(--family-line-heading); font-weight: 700; overflow-wrap: anywhere; }
+.mode-picker-heading p { color: var(--family-muted); line-height: 1.5; }
+.mode-back { position: absolute; left: -12px; top: -8px; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 0; color: var(--family-ink); background: var(--mode-transparent); cursor: pointer; }
+.mode-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.mode-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 100px;
+  padding: 16px 8px;
+  border: 1px solid var(--mode-colour);
+  border-color: color-mix(in srgb, var(--mode-colour) 45%, var(--mode-transparent));
+  border-radius: 20px;
+  background: var(--family-panel);
+  background: color-mix(in srgb, var(--mode-colour) 10%, var(--mode-ground));
+  color: var(--mode-colour);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.mode-tile span { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--family-muted); font-size: var(--family-type-body); font-weight: 600; text-align: center; }
+.mode-tile[aria-pressed='true'] { border-color: var(--mode-colour); background: color-mix(in srgb, var(--mode-colour) 20%, var(--mode-ground)); }
+.mode-tile[aria-pressed='true'] span { color: var(--family-ink); }
+.mode-selected { position: absolute; top: 10px; right: 10px; }
+.mode-tile:last-child:nth-child(3n + 1) { grid-column: 2; }
+.mode-picker-footer { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 24px; }
+.mode-clear { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--family-border); border-radius: 12px; color: var(--family-muted); background: var(--mode-transparent); font: inherit; cursor: pointer; }
+.mode-status, .mode-loading { color: var(--family-muted); line-height: 1.5; text-align: center; }
+.mode-feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding: 12px 16px; border: 1px solid var(--mode-error); border-radius: 12px; color: var(--mode-error); }
+.mode-feedback button { min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; color: var(--family-ink); background: var(--family-panel); cursor: pointer; }
+.mode-picker button:focus-visible, .mode-orb:focus-visible { outline: 2px solid var(--family-focus); outline-offset: 3px; }
+.mode-picker button:disabled { opacity: .5; cursor: not-allowed; }
+.mode-picker button:active { transform: translateY(1px); }
+.mode-orb {
+  position: sticky;
+  bottom: 20px;
+  z-index: 2;
+  align-self: flex-end;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 8px 8px 0 0;
+  border: 1px solid var(--mode-colour, var(--family-focus));
+  border-radius: 50%;
+  background: var(--family-panel-muted);
+  color: var(--mode-colour, var(--family-focus));
+  cursor: pointer;
+  box-shadow: 0 0 0 5px var(--family-accent-soft);
+}
+.mode-orb::before { content: ''; position: absolute; inset: -8px; border: 1px dashed var(--mode-colour, var(--family-focus)); border-radius: inherit; opacity: .5; pointer-events: none; }
+@media (hover: hover) { .mode-tile:hover:not(:disabled) { border-color: var(--mode-colour); background: color-mix(in srgb, var(--mode-colour) 18%, var(--mode-ground)); } .mode-clear:hover:not(:disabled) { color: var(--family-ink); } }
+@media (max-width: 375px) { .mode-picker { padding-inline: 0; } .mode-grid { gap: 8px; } .mode-tile { min-height: 88px; padding: 12px 4px; border-radius: 16px; } .mode-tile span { font-size: var(--family-type-small); } .mode-picker-heading { margin-bottom: 32px; padding-inline: 32px; } .mode-back { left: -4px; } }
+@media (prefers-reduced-motion: reduce) { .mode-tile { transition: none; } .mode-picker button:active { transform: none; } }

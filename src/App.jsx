@@ -5,7 +5,7 @@ import Chat from './components/Chat.jsx'
 import Home from './components/Home.jsx'
 
 const HOME_ROUTES = new Set([
-  '/home',
+  '/reminders', '/home', '/nearby', '/sos', '/alarms', '/mode', '/check-in-contacts', '/delete-account', '/terms',
   '/profile',
   '/posts',
   '/starred-messages',
@@ -41,7 +41,7 @@ function App() {
     return <Chat />
   }
 
-  if (HOME_ROUTES.has(path)) {
+  if (HOME_ROUTES.has(path) || path.startsWith('/alarms/')) {
     if (!localStorage.getItem('sfamily_token')) {
       window.history.replaceState({}, '', '/login')
       return <><Navbar /><main><Hero /></main></>

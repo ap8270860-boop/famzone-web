@@ -1,0 +1,26 @@
+.emergency-page { width: 100%; max-width: 600px; min-width: 0; align-self: flex-start; color: var(--family-ink); font-size: var(--family-type-body); }
+.emergency-page header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.emergency-page h1 { flex: 1; font-size: var(--family-type-title); }
+.emergency-page h2 { margin: 24px 0 8px; font-size: var(--family-type-section); }
+.emergency-page p { color: var(--family-muted); line-height: 1.6; margin-bottom: 20px; }
+.emergency-page button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--family-border); border-radius: 12px; background: var(--family-panel); color: var(--family-ink); font: inherit; cursor: pointer; }
+.emergency-page :is(a,button):focus-visible { outline: 2px solid var(--family-focus); outline-offset: 3px; }
+.emergency-page button:disabled { opacity: .5; cursor: not-allowed; }
+.emergency-trigger { display: flex; flex-direction: column; align-items: center; padding: 24px 0; text-align: center; }
+.emergency-page .emergency-hold { width: 160px; height: 160px; border: 0; border-radius: 50%; display: flex; flex-direction: column; background: linear-gradient(90deg,#00ccdd,#00df87,#8be000); color: #fff; box-shadow: 0 0 0 12px #ff42701a,0 0 0 14px #ff427044,0 0 0 26px #ff427014,0 0 0 28px #91a5b733; user-select: none; touch-action: none; margin-bottom: 32px; }
+.emergency-hold strong { font-size: 28px; }.emergency-hold span { letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+.emergency-hold.is-holding { outline: 5px solid var(--family-focus); outline-offset: 12px; }
+.emergency-services { overflow: hidden; border: 1px solid var(--family-border); border-radius: 20px; background: var(--family-panel); }
+.emergency-services button { width: 100%; border: 0; border-radius: 0; padding: 16px; text-align: left; justify-content: flex-start; gap: 16px; }
+.emergency-services button + button { border-top: 1px solid var(--family-border); }
+.emergency-services button > span { flex: 1; min-width: 0; }
+.emergency-services button > svg:first-child { color: var(--family-focus); flex-shrink: 0; }
+.emergency-services small { display: block; color: var(--family-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.emergency-warning { display: flex; gap: 12px; padding: 16px; border: 1px solid #ff6088; border-radius: 16px; background: #ff608814; color: var(--family-ink) !important; }
+.emergency-warning svg { flex-shrink: 0; color: #ff6088; }
+.emergency-call { display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--family-focus); border-radius: 16px; background: var(--family-panel); color: var(--family-focus); text-decoration: none; }
+.emergency-call > span { flex: 1; }.emergency-call small { display: block; color: var(--family-muted); }.emergency-call strong { font-size: var(--family-type-emphasis); }
+.emergency-external { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 24px 0; color: var(--family-focus); }
+.emergency-service-hero { display: grid; place-items: center; width: 100px; height: 100px; margin: 24px auto; border-radius: 24px; background: var(--family-panel); color: var(--family-focus); }
+.emergency-page ol { padding-left: 24px; }.emergency-page li { padding: 8px 0 8px 8px; line-height: 1.6; }
+.emergency-history,.emergency-active { padding: 20px; margin-bottom: 16px; border: 1px solid var(--family-border); border-radius: 16px; background: var(--family-panel); }

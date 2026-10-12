@@ -1,0 +1,52 @@
+/* Hallmark · photo composer/feed · existing family palette · compact type hierarchy */
+.posts-page { --posts-cyan: #25cfdf; --posts-error: #ff8898; width: 100%; max-width: 600px; min-width: 0; align-self: flex-start; padding: 8px 4px 32px; color: var(--family-ink); font-size: var(--family-type-body); }
+.posts-heading, .posts-card header, .posts-tags header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.posts-heading h1 { font-size: var(--family-type-title); line-height: 1.3; }
+.posts-page button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--family-border); border-radius: 12px; background: var(--family-panel); color: var(--family-ink); font: inherit; cursor: pointer; }
+.posts-page button:disabled { opacity: .5; cursor: not-allowed; }
+.posts-page :is(button,input,textarea):focus-visible { outline: 2px solid var(--family-focus); outline-offset: 3px; }
+.posts-page button:active { transform: translateY(1px); }
+.posts-page .posts-primary { color: var(--family-accent); border-color: var(--family-accent-border); background: var(--family-accent-soft); }
+.posts-page .posts-icon-button { width: 44px; padding: 8px; background: transparent; }
+.posts-file { display: none; }
+.posts-preview { position: relative; width: 100%; overflow: hidden; border-radius: 20px; margin-bottom: 16px; background: var(--family-panel); }
+.posts-preview-square { aspect-ratio: 1; }
+.posts-preview-portrait { aspect-ratio: 4 / 5; }
+.posts-preview img { width: 100%; height: 100%; object-fit: cover; }
+.posts-preview button { position: absolute; right: 12px; bottom: 12px; background: var(--family-panel-muted); }
+.posts-page .posts-photo-empty { width: 100%; min-height: 240px; display: flex; flex-direction: column; border-style: dashed; color: var(--family-accent); margin-bottom: 16px; }
+.posts-photo-empty span, .posts-empty p { color: var(--family-muted); }
+.posts-shape { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+.posts-shape button[aria-pressed='true'] { border-color: var(--family-accent-border); color: var(--family-accent); background: var(--family-accent-soft); }
+.posts-caption { position: relative; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.posts-caption textarea, .posts-tags input:not([type='checkbox']) { width: 100%; min-width: 0; padding: 16px; border: 1px solid var(--family-border); border-radius: 16px; background: var(--family-panel); color: var(--family-ink); font: inherit; font-size: 1rem; }
+.posts-caption textarea { min-height: 140px; padding-bottom: 36px; resize: vertical; }
+.posts-caption > span { position: absolute; right: 16px; bottom: 12px; color: var(--family-muted); font-size: var(--family-type-caption); }
+.posts-page .posts-tag { display: flex; width: 100%; margin-bottom: 20px; padding: 12px 16px; color: var(--family-muted); }
+.posts-tag > span { flex: 1; text-align: left; }
+.posts-tag svg:first-child { color: var(--posts-cyan); }
+.posts-page .posts-share { width: 100%; min-height: 48px; background: linear-gradient(110deg,var(--posts-cyan),var(--family-accent)); border: 0; color: var(--family-panel-muted); font-weight: 700; border-radius: 999px; }
+.posts-tags { margin-bottom: 20px; padding: 20px; border: 1px solid var(--family-border); border-radius: 20px; background: var(--family-panel-muted); }
+.posts-tags h2, .posts-empty h2 { font-size: var(--family-type-section); }
+.posts-tags label:not(.posts-tag-person) { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.posts-tag-person { display: flex; align-items: center; gap: 12px; min-height: 64px; cursor: pointer; }
+.posts-tag-person > span:not(.posts-initial) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.posts-tag-person small { display: block; color: var(--family-muted); font-size: var(--family-type-small); }
+.posts-tag-person img, .posts-initial { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; }
+.posts-initial { display: grid; place-items: center; background: var(--family-panel); }
+.posts-tag-person input { width: 18px; height: 18px; accent-color: var(--family-accent); }
+.posts-card { overflow: hidden; margin-bottom: 24px; border: 1px solid var(--family-border); border-radius: 20px; background: var(--family-panel-muted); }
+.posts-card header { margin: 0; padding: 12px 16px; }
+.posts-card header > img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.posts-card header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.posts-image { display: block; width: 100%; height: auto; }
+.posts-card p { padding: 16px 16px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.posts-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.posts-card footer button { border: 0; background: transparent; }
+.posts-card footer button[aria-pressed='true'] { color: var(--posts-error); }
+.posts-card time { color: var(--family-muted); font-size: var(--family-type-small); }
+.posts-empty { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 16px; text-align: center; }
+.posts-empty > svg { color: var(--family-muted); }
+.posts-error { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 20px; border: 1px solid var(--posts-error); border-radius: 12px; color: var(--posts-error); }
+@media (hover: hover) { .posts-page button:hover:not(:disabled) { border-color: var(--family-accent-border); } }
+@media (prefers-reduced-motion: reduce) { .posts-page button:active { transform: none; } }

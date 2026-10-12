@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './Chat.css'
+import GroupCreator from './GroupCreator.jsx'
+import './ChatFeatures.css'
 import * as api from '../services/sfamilyApi'
 import { createEchoInstance } from '../services/echo'
 
@@ -85,6 +87,12 @@ const CHATS_DATA_MOCK = {
 }
 
 function Chat() {
+  const [inboxFilter, setInboxFilter] = useState('all')
+  const [groupOpen, setGroupOpen] = useState(false)
+  const [inboxError, setInboxError] = useState('')
+  const [inboxLoading, setInboxLoading] = useState(false)
+  const [reminderCount, setReminderCount] = useState(0)
+  const [acceptingRequest, setAcceptingRequest] = useState(false)
   const [activeSideTab, setActiveSideTab] = useState('Messenger')
   const [activeTopTab, setActiveTopTab] = useState('Chats')
   const [activeChatId, setActiveChatId] = useState('inovant')
@@ -127,14 +135,18 @@ function Chat() {
   useEffect(() => {
     if (!token) return
 
+    let live = true
     async function initChatData() {
+      setInboxLoading(true); setInboxError(''); setApiConversations([]); setActiveChatId(null); setActiveMessages([])
       try {
         const profileRes = await api.getProfile()
-        if (profileRes.success && profileRes.data?.user) {
-          setCurrentUser(profileRes.data.user)
+        if (!live) return
+        if (profileRes.success && profileRes.data) {
+          setCurrentUser(profileRes.data.user || profileRes.data)
         }
 
-        const convsRes = await api.getConversations({ state: activeTopTab === 'Notifications' ? 'pending' : 'accepted' })
+        const convsRes = await api.getConversations({ state: (inboxFilter === 'requests' || activeTopTab === 'Notifications') ? 'pending' : 'accepted' })
+        if (!live) return
         if (convsRes.success && convsRes.data?.conversations) {
           setApiConversations(convsRes.data.conversations)
           setIsApiConnected(true)
@@ -148,12 +160,15 @@ function Chat() {
           setUnreadCounts(unreadRes.data)
         }
       } catch (e) {
-        console.warn('Backend API not responding or unauthenticated, defaulting to demo view:', e)
-      }
+        if (live) setInboxError(e.message || 'Unable to load conversations.')
+      } finally { if (live) setInboxLoading(false) }
     }
 
     initChatData()
-  }, [token, activeTopTab])
+    return () => { live = false }
+  }, [token, activeTopTab, inboxFilter])
+
+  useEffect(() => { if (!token) return; api.getReminders().then(response => setReminderCount(response.data?.today?.due || 0)).catch(() => {}); }, [token])
 
   // 2. Presence Ping every 60 seconds
   useEffect(() => {
@@ -299,7 +314,7 @@ function Chat() {
   // Send Message Handler
   const handleSendMessage = async (e) => {
     e.preventDefault()
-    if (!inputText.trim()) return
+    if (!inputText.trim() || (token && (!isApiConnected || !activeChatId))) return
 
     const bodyText = inputText.trim()
     setInputText('')
@@ -405,7 +420,7 @@ function Chat() {
 
     const found = currentChatList.find(c => c.id === activeChatId)
     activeChat = found || currentChatList[0] || { name: 'Chat', subtitle: '' }
-  } else {
+  } else if (!token) {
     currentChatList = CHATS_DATA_MOCK[activeTopTab] || CHATS_DATA_MOCK['Chats']
     activeChat = currentChatList.find(c => c.id === activeChatId) || CHATS_DATA_MOCK['Chats'][1]
   }
@@ -414,6 +429,7 @@ function Chat() {
 
   return (
     <div className="bitrix-app flex">
+      {groupOpen && <GroupCreator onClose={() => setGroupOpen(false)} onCreated={conversation => { setGroupOpen(false); setInboxFilter('all'); setIsApiConnected(true); setApiConversations(prev => [conversation,...prev.filter(item => item.id !== conversation.id)]); setActiveChatId(conversation.id); }} />}
       {/* 1. FAR-LEFT VERTICAL ICON BAR */}
       <aside className="bitrix-icon-bar">
         <div className="icon-bar__top">
@@ -546,13 +562,22 @@ function Chat() {
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input
                   type="text"
-                  placeholder="Find employee or chat"
+                  placeholder="Search chats"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
             </div>
 
+            <div className="chat-feature-actions">
+              <button aria-pressed={inboxFilter === 'all'} onClick={() => setInboxFilter('all')}>All</button>
+              <button aria-pressed={inboxFilter === 'requests'} onClick={() => setInboxFilter('requests')}>Requests</button>
+              <button onClick={() => { window.history.pushState({}, '', '/reminders'); window.dispatchEvent(new PopStateEvent('popstate')); }}>Reminders · {reminderCount}</button>
+              <button disabled={!token} onClick={() => setGroupOpen(true)}>New group</button>
+            </div>
+            {inboxError && <p className="chat-feature-error" role="alert">{inboxError}</p>}
+            {inboxLoading && <p className="chat-feature-error" role="status">Loading chats…</p>}
+            {!inboxLoading && !inboxError && !filteredChats.length && <p className="chat-feature-error">No chats found.</p>}
             <div className="chat-cards-list">
               {filteredChats.map((chat) => (
                 <div
@@ -585,6 +610,7 @@ function Chat() {
 
           {/* ACTIVE CHAT FEED PANE */}
           <div className="chat-feed-panel">
+            {inboxFilter === 'requests' && activeChat?.id && <div className="chat-feature-actions"><button disabled={acceptingRequest} onClick={async () => { setAcceptingRequest(true); try { await api.acceptConversation(activeChat.id); setInboxFilter('all'); } catch(error) { setInboxError(error.message); } finally { setAcceptingRequest(false); } }}>Accept conversation</button></div>}
             
             {/* MESSAGES SCROLL AREA */}
             <div className="feed-messages">
@@ -648,7 +674,7 @@ function Chat() {
               <form className="feed-composer" onSubmit={handleSendMessage}>
                 <label className="composer-icon-btn" title="Attach file">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                  <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploadingFile} />
+                  <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploadingFile || (token && (!isApiConnected || !activeChatId))} />
                 </label>
 
                 <input
@@ -656,10 +682,10 @@ function Chat() {
                   placeholder={uploadingFile ? "Uploading attachment..." : "Type @ or + to mention a person, a chat or AI"}
                   value={inputText}
                   onChange={handleTypingInput}
-                  disabled={uploadingFile}
+                  disabled={uploadingFile || (token && (!isApiConnected || !activeChatId))}
                 />
 
-                <button type="submit" className="composer-round-btn" title="Send">
+                <button type="submit" className="composer-round-btn" title="Send" disabled={uploadingFile || (token && (!isApiConnected || !activeChatId))}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
               </form>

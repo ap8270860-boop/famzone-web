@@ -1,0 +1,27 @@
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, History, Shield, HeartPulse, Flame, LockKeyhole, HandHeart, Phone, ChevronRight, TriangleAlert, ExternalLink } from 'lucide-react';
+import * as api from '../services/sfamilyApi.js';
+import './EmergencySos.css';
+const icons={police:Shield,ambulance:HeartPulse,fire:Flame,cyber:LockKeyhole,child:HandHeart};
+export default function EmergencySos() {
+  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[service,setService]=useState(null),[history,setHistory]=useState(null),[holding,setHolding]=useState(false);
+  const timer=useRef(null),locked=useRef(false);
+  const refresh=async()=>{try{setData((await api.getSos()).data);}catch(e){setError(e.message);}};
+  const cancel=()=>{clearTimeout(timer.current);timer.current=null;setHolding(false);};
+  useEffect(()=>{refresh();const blur=()=>cancel();const visibility=()=>{if(document.hidden)cancel();};window.addEventListener('blur',blur);document.addEventListener('visibilitychange',visibility);return()=>{clearTimeout(timer.current);window.removeEventListener('blur',blur);document.removeEventListener('visibilitychange',visibility);};},[]);
+  const candidate=data?.active || data?.alert;
+  const active=candidate && typeof candidate==='object' && candidate.active!==false ? candidate : null;
+  const raise=async()=>{if(locked.current)return;locked.current=true;setBusy(true);setError('');try{await api.startSos();await refresh();}catch(e){setError(e.message || 'SOS could not be sent. Retry.');}finally{locked.current=false;setBusy(false);}};
+  const hold=()=>{if(timer.current || busy || active)return;setHolding(true);timer.current=setTimeout(()=>{cancel();raise();},2000);};
+  const primary=s=>s.call?.find(number=>number.primary) || s.call?.[0];
+  const Icon=service?(icons[service.key] || Shield):Shield;
+  const back=()=>{if(service){setService(null);return;}if(history){setHistory(null);return;}window.history.pushState({},'','/home');window.dispatchEvent(new PopStateEvent('popstate'));};
+  return <div className="emergency-page"><header><button aria-label="Back" onClick={back}><ArrowLeft size={20}/></button><h1>{service?.label || (history?'SOS history':'Emergency SOS')}</h1>{!service && !history && <button disabled={busy} onClick={async()=>{setBusy(true);try{setHistory((await api.getSosHistory()).data);}catch(e){setError(e.message);}finally{setBusy(false);}}}><History size={17}/>History</button>}</header>
+    {error && <p className="emergency-warning" role="alert">{error}<button onClick={refresh}>Retry</button></p>}
+    {!data && !error && <p role="status">Loading emergency services…</p>}
+    {service?<><div className="emergency-service-hero"><Icon size={42}/></div><p>{service.tagline}</p>{service.warning && <p className="emergency-warning"><TriangleAlert size={20}/>{service.warning}</p>}{(service.call || []).map(number=><a className="emergency-call" key={number.number} href={`tel:${String(number.number).replace(/[^0-9+]/g,'')}`}><Phone size={22}/><span><strong>Call {number.number}</strong><small>{number.label}</small></span><ChevronRight size={20}/></a>)}{/^https?:\/\//i.test(service.link?.url || '') && <a className="emergency-external" href={service.link.url} target="_blank" rel="noreferrer"><ExternalLink size={17}/>{service.link.label || 'More information'}</a>}<h2>While help is on the way</h2><ol>{(service.guidance || []).map((text,i)=><li key={i}>{text}</li>)}</ol>{service.disclaimer && <p>{service.disclaimer}</p>}</>:history?<>{(history.alerts || history.history || []).length? (history.alerts || history.history).map(alert=><section className="emergency-history" key={alert.id}><strong>{alert.category || 'SOS'}</strong><p>{alert.status} · {alert.started_at?new Date(alert.started_at).toLocaleString():''}</p></section>):<p>No SOS alerts yet.</p>}</>:data && <>
+      {active?<section className="emergency-active"><h2>SOS is active</h2><p>Your alert has been received by the server.</p>{['resolved','cancelled','false_alarm'].map(status=><button key={status} disabled={busy} onClick={async()=>{setBusy(true);try{await api.endSos(active.id,status);await refresh();}catch(e){setError(e.message);}finally{setBusy(false);}}}>{status.replaceAll('_',' ')}</button>)}</section>:<div className="emergency-trigger"><button className={`emergency-hold${holding?' is-holding':''}`} aria-label="Hold for two seconds to send SOS" disabled={busy} onPointerDown={event=>{if(event.button!==0)return;event.currentTarget.setPointerCapture(event.pointerId);hold();}} onPointerUp={cancel} onPointerCancel={cancel} onLostPointerCapture={cancel} onKeyDown={event=>{if((event.key===' ' || event.key==='Enter')&&!event.repeat){event.preventDefault();hold();}}} onKeyUp={event=>{if(event.key===' '||event.key==='Enter'){event.preventDefault();cancel();}}} onBlur={cancel}><strong>SOS</strong><span>{busy?'Sending…':holding?'Holding…':'HOLD'}</span></button><h2>Hold for 2 seconds</h2><p>Send an emergency alert to your family.</p></div>}
+      <h2>Emergency services</h2><p>Call any of these directly — no alert is raised.</p><div className="emergency-services">{(data.services || []).map(s=>{const Glyph=icons[s.key] || Shield;return <button key={s.key} onClick={()=>setService(s)}><Glyph size={25}/><span><strong>{s.label}</strong><small>{primary(s)?.number} · {s.tagline}</small></span><ChevronRight size={18}/></button>;})}</div>{data.disclaimer && <p>{data.disclaimer}</p>}
+    </>}
+  </div>;
+}

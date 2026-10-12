@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile menu — interaction states</title>
+  <link rel="stylesheet" href="../styles/globals.css">
+  <link rel="stylesheet" href="../styles/family-tokens.css">
+  <link rel="stylesheet" href="ProfileHub.css">
+  <style>
+    body { padding: 24px; }
+    .profile-hub { margin: auto; }
+    .preview-state { display: block; margin: 20px 0 8px; color: var(--family-muted); font-size: 14px; }
+    .profile-menu-row { border: 1px solid var(--profile-border); border-radius: 16px; background-color: var(--profile-panel); }
+  </style>
+</head>
+<body>
+  <main class="profile-hub">
+    <header class="profile-identity"><h1>Profile menu states</h1><p>Standalone styling preview</p></header>
+    <span class="preview-state">Default</span><button class="profile-menu-row">My posts <span aria-hidden="true">›</span></button>
+    <span class="preview-state">Hover</span><button class="profile-menu-row is-hover">My posts <span aria-hidden="true">›</span></button>
+    <span class="preview-state">Focus</span><button class="profile-menu-row is-focus">My posts <span aria-hidden="true">›</span></button>
+    <span class="preview-state">Pressed</span><button class="profile-menu-row is-active">My posts <span aria-hidden="true">›</span></button>
+    <span class="preview-state">Disabled</span><button class="profile-menu-row" disabled>My posts <span aria-hidden="true">›</span></button>
+    <span class="preview-state">Loading</span><button class="profile-menu-row" data-state="loading" aria-busy="true" disabled>Saving…</button>
+    <span class="preview-state">Error</span><button class="profile-menu-row" data-state="error">Could not save. Retry</button>
+    <span class="preview-state">Success</span><button class="profile-menu-row" data-state="success">Copied</button>
+  </main>
+</body>
+</html>

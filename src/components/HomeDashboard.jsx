@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import SosModal from './SosModal.jsx';
-import { checkIn, getSafetyStatus } from '../services/sfamilyApi.js';
+import { checkIn, getSafetyStatus, getProfile } from '../services/sfamilyApi.js';
 import './HomeDashboard.css';
+import { ModeIcon, modeColour } from './ModePicker.jsx';
 
 export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
+  const [currentMode, setCurrentMode] = useState(null);
+  const [profileName, setProfileName] = useState('');
+  const [recentDays, setRecentDays] = useState([]);
+  const [notifyConfigured, setNotifyConfigured] = useState(false);
+  const [headline, setHeadline] = useState('Safety status');
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [streakCount, setStreakCount] = useState(0);
   const [sosModalOpen, setSosModalOpen] = useState(false);
@@ -15,11 +21,15 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
     const checkInStatus = status?.check_in;
     if (!status || !checkInStatus) return;
     setIsCheckedIn(Boolean(checkInStatus.done_today));
+    setRecentDays(checkInStatus.recent || []);
+    setNotifyConfigured(Boolean(checkInStatus.notify?.configured));
+    setHeadline(status.headline || 'Safety status');
     setStreakCount(checkInStatus.streak?.current || 0);
     setStatusDetail(status.detail || 'Check in before 9:00 PM.');
   };
 
   useEffect(() => {
+    getProfile().then(r => { const user = r.data?.user || r.data; setProfileName(user?.name || ''); setCurrentMode(user?.mode || null); }).catch(() => {});
     getSafetyStatus()
       .then(applySafetyStatus)
       .catch(() => {
@@ -27,14 +37,17 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
       });
   }, []);
 
+  useEffect(() => { const changed = event => setCurrentMode(event.detail); window.addEventListener('sfamily:mode-changed', changed); return () => window.removeEventListener('sfamily:mode-changed', changed); }, []);
+
   const handleCheckIn = async () => {
     if (isCheckedIn || checkInLoading) return;
+    if (!notifyConfigured) { navigateTo('/check-in-contacts'); return; }
     setCheckInLoading(true);
     try {
-      const response = await checkIn({
+      await checkIn({
         note: 'Home safe.',
       });
-      applySafetyStatus(response);
+      applySafetyStatus(await getSafetyStatus());
     } catch (error) {
       setStatusDetail(error.message || 'Unable to check in right now.');
     } finally {
@@ -46,7 +59,7 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
     <div className="home-dashboard">
       {/* Greeting Header */}
       <div className="dash-header">
-        <h1 className="dash-greeting">Hi, Devvratbb 👋</h1>
+        <h1 className="dash-greeting">Hi{profileName ? `, ${profileName}` : ''} 👋</h1>
         <p className="dash-subgreeting">You are protected. Your family is connected.</p>
       </div>
 
@@ -60,7 +73,7 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
             </svg>
           </div>
           <div className="dash-status-text">
-            <h2>{isCheckedIn ? 'Checked In Safe' : 'All Safe'}</h2>
+            <h2>{headline}</h2>
             <p>{statusDetail}</p>
             <div className="dash-streak-badge">
               <span className="fire-icon">🔥</span>
@@ -146,47 +159,19 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
 
         {/* Days Streak Row (Live Date India IST) */}
         <div className="checkin-days-row">
-          {(() => {
-            const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-            const now = new Date();
-            const istString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-            const todayIST = new Date(istString);
-            
-            const days = [];
-            for (let i = 6; i >= 0; i--) {
-              const d = new Date(todayIST);
-              d.setDate(todayIST.getDate() - i);
-              const dayLetter = dayNames[d.getDay()];
-              const isToday = i === 0;
-              // Check status for today vs past days (using streak)
-              const checked = isToday ? isCheckedIn : (i <= Math.max(streakCount, 2));
-              days.push({
-                day: dayLetter,
-                checked: Boolean(checked),
-                isToday,
-                date: d.getDate(),
-              });
-            }
-
-            return days.map((item, idx) => (
-              <div key={idx} className={`day-col ${item.isToday ? 'today-col' : ''}`}>
-                <span className="day-label">{item.day}</span>
-                <div className={`day-circle ${item.checked ? 'checked' : ''}`}>
-                  {item.checked && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  )}
-                </div>
-              </div>
-            ));
-          })()}
+          {recentDays.map(item => (
+            <div key={item.date} className={`day-col ${item.is_today ? 'today-col' : ''}`}>
+              <span className="day-label">{item.initial}</span>
+              <div className={`day-circle ${item.done ? 'checked' : ''}`} title={item.date}>{item.done ? '✓' : ''}</div>
+            </div>
+          ))}
         </div>
 
         {/* Main Check-in Action Button */}
         <button 
           className={`dash-safe-btn ${isCheckedIn ? 'confirmed' : ''}`}
           onClick={handleCheckIn}
+          disabled={checkInLoading || isCheckedIn}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
@@ -209,7 +194,7 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
             <div className="family-card" key={member.id} onClick={() => navigateTo && navigateTo('/circles')}>
               <div className="family-avatar-wrap family-initial-avatar"><span>{member.initials}</span><span className="online-dot" /></div>
               <span className="family-name">{member.name}</span>
-              <span className="family-role">{member.relationship}</span>
+              <span className="family-role">{member.relationship}{member.mode?.name ? ` · ${member.mode.name}` : ''}</span>
             </div>
           ))}
 
@@ -287,6 +272,8 @@ export default function HomeDashboard({ navigateTo, familyMembers = [] }) {
           <span className="feature-arrow">&rsaquo;</span>
         </div>
       </div>
+
+      <button className="mode-orb" style={{ '--mode-colour': modeColour(currentMode?.colour) }} onClick={() => navigateTo('/mode')} aria-label={currentMode ? `Change mode: ${currentMode.name}` : 'Set your current mode'} title={currentMode ? `Current mode: ${currentMode.name}` : 'What are you up to?'}><ModeIcon mode={currentMode} /></button>
 
       {/* SOS Alert Modal Popup */}
       <SosModal

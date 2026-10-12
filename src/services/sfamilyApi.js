@@ -295,14 +295,22 @@ export async function getFamilyMembers() {
   return entries.map((entry) => {
     const user = entry.user || entry.member || entry;
     const name = user.name || user.full_name || user.username || 'Family member';
+    // Relationship metadata is an object; only a relation label belongs in the UI.
+    const relationship = [
+      entry.relation,
+      entry.relationship,
+      entry.relationship?.family_relation,
+      user.relationship?.family_relation,
+    ].find((value) => typeof value === 'string' && value.trim()) || 'Family';
     return {
       id: String(entry.id || user.id),
       initials: name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
       avatar: user.avatar_url || user.avatar || null,
       username: user.username ? `@${user.username.replace(/^@/, '')}` : '',
       name,
+      mode: user.mode || null,
       bio: user.about || user.bio || '',
-      relationship: entry.relation || entry.relationship || user.relationship?.family_relation || 'Family',
+      relationship,
       phone: user.phone || user.phone_number || '',
       followers: user.counts?.followers || user.followers_count || 0,
       following: user.counts?.following || user.following_count || 0,
@@ -556,3 +564,54 @@ export async function uploadMedia(file, type = 'image', extraParams = {}) {
 export async function pingPresence() {
   return await apiFetch('/presence/ping', { method: 'POST' });
 }
+
+/** Feature contracts shared with the Flutter client. */
+const featureRequest = (path, method = 'GET', payload) => apiFetch(path, {
+  method,
+  ...(payload !== undefined && { body: payload instanceof FormData ? payload : JSON.stringify(payload) }),
+});
+const featureId = encodeURIComponent;
+export const getModes = () => featureRequest('/modes');
+export const setMode = (mode) => featureRequest('/profile/mode', 'PUT', { mode });
+export const getAlarms = () => featureRequest('/safety/alarms');
+export const getAlarm = (id) => featureRequest(`/safety/alarms/${featureId(id)}`);
+export const createAlarm = (payload) => featureRequest('/safety/alarms', 'POST', payload);
+export const answerAlarm = (id) => featureRequest(`/safety/alarms/${featureId(id)}/answer`, 'POST');
+export const extendAlarm = (id, minutes) => featureRequest(`/safety/alarms/${featureId(id)}/extend`, 'POST', { minutes });
+export const respondToAlarmWatch = (id, accept) => featureRequest(`/safety/alarms/watch/${featureId(id)}/respond`, 'POST', { accept });
+export const getCheckInContacts = () => featureRequest('/safety/check-in/contacts');
+export const saveCheckInContacts = (contacts) => featureRequest('/safety/check-in/contacts', 'PUT', { contacts });
+export const getNearbySettings = () => featureRequest('/nearby/settings');
+export const updateNearbySettings = (payload) => featureRequest('/nearby/settings', 'PATCH', payload);
+export const getNearbyPeople = (params = {}) => featureRequest(`/nearby?${new URLSearchParams(params)}`);
+export const getHelpRequests = () => featureRequest('/nearby/help');
+export const requestHelp = (payload) => featureRequest('/nearby/help', 'POST', payload);
+export const respondToHelp = (id, action) => featureRequest(`/nearby/help/${featureId(id)}/${action}`, 'POST');
+export const getSos = () => featureRequest('/sos');
+export const startSos = (payload = {}) => featureRequest('/sos', 'POST', payload);
+export const endSos = (id, status) => featureRequest(`/sos/${featureId(id)}/end`, 'POST', { status });
+export const getContentPage = (slug) => featureRequest(`/pages/${featureId(slug)}`);
+export const deleteAccount = (confirm, reason) => featureRequest('/account', 'DELETE', { confirm, ...(reason?.trim() && { reason: reason.trim() }) });
+export const getUserPosts = (id, page = 1) => featureRequest(`/users/${featureId(id)}/posts?page=${page}`);
+export const createPost = (payload) => featureRequest('/posts', 'POST', payload);
+export const deletePost = (id) => featureRequest(`/posts/${featureId(id)}`, 'DELETE');
+export const getLiveLocation = () => featureRequest('/location/live');
+export const shareLocation = (payload) => featureRequest('/location/share', 'POST', payload);
+export const stopLocation = () => featureRequest('/location/stop', 'POST', {});
+export const pingLocation = (fixes) => featureRequest('/location/ping', 'POST', { fixes });
+
+/** Full profile, including the alternate security avatar. */
+export const getProfileDetails = () => apiFetch('/profile', { method: 'GET' });
+
+/** Reminders: schedules and occurrence actions use the same contract as Flutter. */
+export const getReminderCatalogue = () => featureRequest('/reminders/catalogue');
+export const getReminders = () => featureRequest('/reminders');
+export const createReminder = (payload) => featureRequest('/reminders', 'POST', payload);
+export const updateReminder = (id, payload) => featureRequest(`/reminders/${featureId(id)}`, 'PUT', payload);
+export const deleteReminder = (id) => featureRequest(`/reminders/${featureId(id)}`, 'DELETE');
+export const respondToReminder = (id, accept) => featureRequest(`/reminders/${featureId(id)}/respond`, 'POST', { accept });
+export const getReminderDay = (date) => featureRequest(`/reminders/day?date=${featureId(date)}`);
+export const getReminderReport = () => featureRequest('/reminders/score');
+export const settleReminder = (id, payload) => featureRequest(`/reminders/${featureId(id)}/occurrences`, 'POST', payload);
+export const setPostLike = (id, liked) => featureRequest(`/posts/${featureId(id)}/like`, liked ? 'POST' : 'DELETE');
+export const getSosHistory = (page = 1) => featureRequest(`/sos/history?page=${page}`);

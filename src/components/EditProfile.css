@@ -71,7 +71,9 @@
 }
 
 .profile-main-title {
-  font-size: 28px;
+  line-height: var(--family-line-heading);
+  overflow-wrap: anywhere;
+  font-size: var(--family-type-title);
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 6px 0;
@@ -142,7 +144,7 @@
 
 .profile-card-text h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--family-type-section);
   font-weight: 700;
   color: #ffffff;
 }
@@ -484,7 +486,7 @@ input:checked + .slider:before {
   border-radius: 26px;
   background: linear-gradient(135deg, #00E599 0%, #00B37E 100%);
   color: #06111e;
-  font-size: 16px;
+  font-size: var(--family-type-control);
   font-weight: 700;
   border: none;
   cursor: pointer;

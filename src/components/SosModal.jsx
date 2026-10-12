@@ -1,27 +1,28 @@
 import React, { useState } from 'react';
 import './SosModal.css';
+import { startSos } from '../services/sfamilyApi.js';
 
 export default function SosModal({ isOpen, onClose, onSend }) {
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
+  const [error, setError] = useState('');
+  React.useEffect(() => { if (isOpen) { setIsSent(false); setError(''); } }, [isOpen]);
   if (!isOpen) return null;
 
-  const handleSendSOS = () => {
-    setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
+  const handleSendSOS = async () => {
+    if (isSending) return;
+    setIsSending(true); setError('');
+    try {
+      const response = await startSos();
       setIsSent(true);
-      if (onSend) onSend();
-      setTimeout(() => {
-        setIsSent(false);
-        onClose();
-      }, 2000);
-    }, 1200);
+      onSend?.(response);
+    } catch (e) { setError(e.message || 'Unable to send SOS. Please retry.'); }
+    finally { setIsSending(false); }
   };
 
   return (
-    <div className="sos-modal-overlay" onClick={onClose}>
+    <div className="sos-modal-overlay" onClick={() => { if (!isSending) onClose(); }}>
       <div className="sos-modal-card" onClick={(e) => e.stopPropagation()}>
         {isSent ? (
           <div className="sos-modal-sent">
@@ -32,7 +33,7 @@ export default function SosModal({ isOpen, onClose, onSend }) {
               </svg>
             </div>
             <h2>SOS Alert Sent!</h2>
-            <p>Your family circle and emergency contacts have been notified with your live GPS location.</p>
+            <p>The server has received your SOS alert.</p><button className="sos-btn-cancel" onClick={onClose}>Close</button>
           </div>
         ) : (
           <>
@@ -46,12 +47,13 @@ export default function SosModal({ isOpen, onClose, onSend }) {
             {/* Title & Description */}
             <h2 className="sos-modal-title">Send an SOS alert?</h2>
             <p className="sos-modal-desc">
-              Everyone in your circle gets a push, an in-app alert and an SMS with your current location.
+              Send an emergency alert to your safety network.
             </p>
 
+            {error && <p role="alert">{error}</p>}
             {/* Buttons Row */}
             <div className="sos-modal-actions">
-              <button className="sos-btn-cancel" onClick={onClose} disabled={isSending}>
+              <button className="sos-btn-cancel" onClick={() => { if (!isSending) onClose(); }} disabled={isSending}>
                 Cancel
               </button>
               <button 
